@@ -4,6 +4,9 @@ import PrivateRoute from './components/PrivateRoute'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Companies from './pages/Companies'
+import NewAudit from './pages/NewAudit'
+import Dashboard from './pages/Dashboard'
+import Reports from './pages/Reports'
 
 export default function App() {
   return (
@@ -17,6 +20,30 @@ export default function App() {
             element={
               <PrivateRoute>
                 <Companies />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/audit/new"
+            element={
+              <PrivateRoute>
+                <NewAudit />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/audit/:auditId/dashboard"
+            element={
+              <PrivateRoute>
+                <Dashboard />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/audit/:auditId/reports"
+            element={
+              <PrivateRoute>
+                <Reports />
               </PrivateRoute>
             }
           />

@@ -57,6 +57,27 @@
   gap: 0.75rem;
 }
 
+/* NEW: audit button (outlined accent) */
+.btnAudit {
+  padding: 0.6rem 1.2rem;
+  background: transparent;
+  color: var(--accent-light);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 2px solid var(--accent-light);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btnAudit:hover {
+  background: var(--accent);
+  color: var(--white);
+  border-color: var(--accent);
+}
+
 .btnCreate {
   padding: 0.6rem 1.2rem;
   background: var(--accent);
@@ -219,10 +240,12 @@
   padding-top: 0.5rem;
   border-top: 1px solid var(--border);
   margin-top: auto;
+  flex-wrap: wrap;
 }
 
 .cardBtn {
   flex: 1;
+  min-width: 60px;
   padding: 0.5rem;
   font-size: 0.75rem;
   font-weight: 600;
@@ -239,6 +262,19 @@
 .cardBtn:hover {
   background: var(--ink);
   color: var(--white);
+}
+
+/* NEW: audit action button on card */
+.cardBtnAudit {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.cardBtnAudit:hover {
+  background: var(--accent) !important;
+  color: var(--white) !important;
+  border-color: var(--accent) !important;
 }
 
 .cardBtnDanger {
@@ -538,5 +574,10 @@
 
   .statsBar {
     padding: 0.75rem 1.25rem;
+  }
+
+  .headerRight {
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 }

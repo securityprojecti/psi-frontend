@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { companiesService } from '../services/companies'
 import styles from './Companies.module.css'
@@ -103,6 +104,7 @@ function ConfirmModal({ company, onClose, onConfirm, loading }) {
 
 export default function Companies() {
   const { logout } = useAuth()
+  const navigate = useNavigate()
 
   const [companies, setCompanies] = useState([])
   const [fetching, setFetching] = useState(true)
@@ -119,10 +121,7 @@ export default function Companies() {
     setFetching(true)
     try {
       const { data } = await companiesService.list()
-
-      // ✅ CORREÇÃO DO BUG
       const companiesData = Array.isArray(data) ? data : data.results
-
       setCompanies(companiesData || [])
     } catch {
       showToast('Erro ao carregar empresas.', 'error')
@@ -202,6 +201,13 @@ export default function Companies() {
 
         <div className={styles.headerRight}>
           <button
+            className={styles.btnAudit}
+            onClick={() => navigate('/audit/new')}
+          >
+            + Nova Auditoria
+          </button>
+
+          <button
             className={styles.btnCreate}
             onClick={() => setModal({ type: 'create' })}
           >
@@ -233,6 +239,7 @@ export default function Companies() {
         ) : companies.length === 0 ? (
           <div className={styles.empty}>
             <h2 className={styles.emptyTitle}>Nenhuma empresa</h2>
+            <p className={styles.emptyText}>Crie uma empresa para iniciar uma auditoria.</p>
           </div>
         ) : (
           <div className={styles.grid}>
@@ -247,6 +254,13 @@ export default function Companies() {
                 )}
 
                 <div className={styles.cardActions}>
+                  <button
+                    className={`${styles.cardBtn} ${styles.cardBtnAudit}`}
+                    onClick={() => navigate('/audit/new')}
+                  >
+                    Auditar
+                  </button>
+
                   <button
                     className={styles.cardBtn}
                     onClick={() => setModal({ type: 'edit', company })}
