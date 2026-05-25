@@ -379,7 +379,7 @@ export default function Dashboard() {
             </div>
 
             {/* Charts grid */}
-            <div className={styles.chartsGrid}>
+            {/* <div className={styles.chartsGrid}> */}
               {/* Pie */}
               <div className={styles.tableCard}>
                 <h3 className={styles.chartTitle}>Distribuição</h3>
@@ -407,7 +407,7 @@ export default function Dashboard() {
                     color: pctColor(t.pct),
                   }))}
                 />
-              </div>
+              {/* </div> */}
             </div>
 
             {/* By-type detail table */}
