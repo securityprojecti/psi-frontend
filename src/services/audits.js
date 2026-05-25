@@ -1,7 +1,7 @@
 import api from './api'
 
 export const auditsService = {
-  list: () => api.get('/audits/'),
+  list: (params) => api.get('/audits/', { params }),
   get: (id) => api.get(`/audits/${id}/`),
   create: (data) => api.post('/audits/', data),
   remove: (id) => api.delete(`/audits/${id}/`),

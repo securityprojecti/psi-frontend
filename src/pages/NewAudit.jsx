@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { companiesService } from '../services/companies'
 import { auditsService, controlsService, answersService } from '../services/audits'
 import styles from './NewAudit.module.css'
@@ -63,12 +63,22 @@ export default function NewAudit() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
+  const location = useLocation()
+
   useEffect(() => {
     companiesService.list().then(({ data }) => {
       const list = Array.isArray(data) ? data : data.results
       setCompanies(list || [])
+      const presetId = location.state?.companyId
+      if (presetId) {
+        const found = (list || []).find((c) => c.id === presetId)
+        if (found) {
+          setSelectedCompany(found)
+          setStep(1)
+        }
+      }
     }).finally(() => setLoadingCompanies(false))
-  }, [])
+  }, [location.state])
 
   const loadControls = async (norm) => {
     setLoadingControls(true)

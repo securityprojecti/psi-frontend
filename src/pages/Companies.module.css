@@ -245,7 +245,7 @@
 
 .cardBtn {
   flex: 1;
-  min-width: 60px;
+  min-width: 80px;
   padding: 0.5rem;
   font-size: 0.75rem;
   font-weight: 600;

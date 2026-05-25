@@ -244,7 +244,7 @@ export default function Companies() {
         ) : (
           <div className={styles.grid}>
             {companies.map((company) => (
-              <div key={company.id} className={styles.card}>
+              <div key={company.id} className={styles.card} onClick={() => navigate(`/companies/${company.id}`)}>
                 <h3 className={styles.cardName}>{company.name}</h3>
 
                 {company.created_at && (
@@ -256,21 +256,21 @@ export default function Companies() {
                 <div className={styles.cardActions}>
                   <button
                     className={`${styles.cardBtn} ${styles.cardBtnAudit}`}
-                    onClick={() => navigate('/audit/new')}
+                    onClick={(e) => { e.stopPropagation(); navigate('/audit/new', { state: { companyId: company.id } }) }}
                   >
                     Auditar
                   </button>
 
                   <button
                     className={styles.cardBtn}
-                    onClick={() => setModal({ type: 'edit', company })}
+                    onClick={(e) => { e.stopPropagation(); setModal({ type: 'edit', company }) }}
                   >
                     Editar
                   </button>
 
                   <button
                     className={`${styles.cardBtn} ${styles.cardBtnDanger}`}
-                    onClick={() => setModal({ type: 'delete', company })}
+                    onClick={(e) => { e.stopPropagation(); setModal({ type: 'delete', company }) }}
                   >
                     Remover
                   </button>

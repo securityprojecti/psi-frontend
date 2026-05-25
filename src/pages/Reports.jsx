@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { auditsService } from '../services/audits'
+import { companiesService } from '../services/companies'
 import styles from './Reports.module.css'
 
 const STATUS = {
@@ -54,6 +55,7 @@ export default function Reports() {
 
   const [audit, setAudit] = useState(null)
   const [allAudits, setAllAudits] = useState([])
+  const [companyName, setCompanyName] = useState('')
   const [loading, setLoading] = useState(true)
 
   // Report config
@@ -66,6 +68,14 @@ export default function Reports() {
       try {
         const { data } = await auditsService.get(auditId)
         setAudit(data)
+        if (!data.company_name && typeof data.company === 'number') {
+          try {
+            const { data: companyData } = await companiesService.get(data.company)
+            setCompanyName(companyData.name || companyData.company_name || '')
+          } catch {
+            setCompanyName('')
+          }
+        }
         const { data: allData } = await auditsService.list()
         const list = Array.isArray(allData) ? allData : allData.results || []
         const companyAudits = list
@@ -110,6 +120,12 @@ export default function Reports() {
   const dateStr = new Date(audit.date).toLocaleDateString('pt-BR', {
     day: '2-digit', month: 'long', year: 'numeric'
   })
+
+  const isoLabel = audit.iso_type || audit.iso || audit.standard || audit.norm || 'ISO'
+  const reportBrandName = `Diagnóstico ${isoLabel}`
+  const reportBrandSub = isoLabel.includes('ISO')
+    ? 'Conformidade da Informação'
+    : 'Conformidade ISO'
 
   return (
     <div className={styles.page}>
@@ -191,12 +207,12 @@ export default function Reports() {
           <div className={styles.reportBrand}>
             <span className={styles.reportBrandMark}>CM</span>
             <div>
-              <p className={styles.reportBrandName}>Diagnóstico ISO</p>
-              <p className={styles.reportBrandSub}>Conformidade da Informação</p>
+              <p className={styles.reportBrandName}>{reportBrandName}</p>
+              <p className={styles.reportBrandSub}>{reportBrandSub}</p>
             </div>
           </div>
           <div className={styles.reportMeta}>
-            <p><strong>Empresa:</strong> {audit.company_name || `Empresa #${audit.company}`}</p>
+            <p><strong>Empresa:</strong> {audit.company_name || companyName || (audit.company && typeof audit.company === 'object' ? audit.company.name : `Empresa #${audit.company}`)}</p>
             <p><strong>Data:</strong> {dateStr}</p>
             <p><strong>Auditoria:</strong> #{audit.id}</p>
             <p><strong>Relatório:</strong> {
@@ -447,7 +463,7 @@ export default function Reports() {
         {/* Report footer */}
         <div className={styles.reportFooter}>
           <p>Gerado em {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-          <p>Diagnóstico de Conformidade ISO 27001 / 27701</p>
+          <p>{reportBrandName}</p>
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { auditsService } from '../services/audits'
+import { companiesService } from '../services/companies'
 import styles from './Dashboard.module.css'
 
 const STATUS = {
@@ -199,6 +200,7 @@ export default function Dashboard() {
 
   const [audit, setAudit] = useState(null)
   const [allAudits, setAllAudits] = useState([]) // last 3 for same company
+  const [companyName, setCompanyName] = useState('')
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview') // overview | compare
 
@@ -207,6 +209,14 @@ export default function Dashboard() {
       try {
         const { data } = await auditsService.get(auditId)
         setAudit(data)
+        if (!data.company_name && typeof data.company === 'number') {
+          try {
+            const { data: companyData } = await companiesService.get(data.company)
+            setCompanyName(companyData.name || companyData.company_name || '')
+          } catch {
+            setCompanyName('')
+          }
+        }
         // Load all audits for this company (last 3)
         const { data: allData } = await auditsService.list()
         const list = Array.isArray(allData) ? allData : allData.results || []
@@ -286,7 +296,7 @@ export default function Dashboard() {
       <div className={styles.metaBar}>
         <span className={styles.metaItem}>
           <span className={styles.metaLabel}>Empresa</span>
-          <span className={styles.metaValue}>{audit.company_name || `ID ${audit.company}`}</span>
+          <span className={styles.metaValue}>{audit.company_name || companyName || (typeof audit.company === 'object' ? audit.company.name : `ID ${audit.company}`)}</span>
         </span>
         <span className={styles.metaDivider} />
         <span className={styles.metaItem}>
