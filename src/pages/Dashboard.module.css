@@ -260,7 +260,6 @@
 }
 
 .chartCard {
-  min-width: 600px;
   background: var(--white);
   border: 2px solid var(--ink);
   border-radius: var(--radius-lg);

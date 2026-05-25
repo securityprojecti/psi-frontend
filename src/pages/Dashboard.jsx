@@ -381,7 +381,7 @@ export default function Dashboard() {
             {/* Charts grid */}
             <div className={styles.chartsGrid}>
               {/* Pie */}
-              <div className={styles.chartCard}>
+              <div className={styles.tableCard}>
                 <h3 className={styles.chartTitle}>Distribuição</h3>
                 <div className={styles.pieWrapper}>
                   <PieChart slices={pieSlices} size={180} />
@@ -398,7 +398,7 @@ export default function Dashboard() {
               </div>
 
               {/* Bar by type */}
-              <div className={styles.chartCard}>
+              <div className={styles.tableCard}>
                 <h3 className={styles.chartTitle}>Por Tipo de Controle</h3>
                 <BarChart
                   data={byType.map((t) => ({
