@@ -4,7 +4,7 @@ import { companiesService } from '../services/companies'
 import { auditsService } from '../services/audits'
 import styles from './Companies.module.css'
 
-// Derive the dominant ISO from an audit's answers
+// Derive dominant ISO from an audit's answers
 function deriveIso(audit) {
   const answers = audit.answers || []
   const freq = {}
@@ -26,26 +26,48 @@ export default function Company() {
   useEffect(() => {
     let mounted = true
     setLoading(true)
-    Promise.all([
-      companiesService.get(companyId).catch(() => null),
-      auditsService.list({ company: companyId, page_size: 100 }).catch(() => ({ data: [] })),
-    ])
-      .then(([companyRes, auditsRes]) => {
+
+    const load = async () => {
+      try {
+        // 1. Fetch company + audit list in parallel
+        const [companyRes, auditsRes] = await Promise.all([
+          companiesService.get(companyId).catch(() => null),
+          auditsService.list({ company: companyId, page_size: 100 }).catch(() => ({ data: [] })),
+        ])
+
         if (!mounted) return
-        if (companyRes && companyRes.data) setCompany(companyRes.data)
+
+        if (companyRes?.data) setCompany(companyRes.data)
+
         const list = auditsRes?.data
         const auditsList = Array.isArray(list) ? list : list?.results || []
-        setAudits(auditsList)
-      })
-      .finally(() => mounted && setLoading(false))
 
+        // 2. Check if answers already came populated (some backends do, some don't)
+        const needsDetail = auditsList.length > 0 &&
+          (auditsList[0].answers === undefined || auditsList[0].answers === null)
+
+        if (needsDetail) {
+          // Fetch full detail for each audit in parallel to get answers + control_info
+          const detailed = await Promise.all(
+            auditsList.map((a) => auditsService.get(a.id).then((r) => r.data).catch(() => a))
+          )
+          if (mounted) setAudits(detailed)
+        } else {
+          if (mounted) setAudits(auditsList)
+        }
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+
+    load()
     return () => { mounted = false }
   }, [companyId])
 
   const formatDate = (d) =>
     new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
 
-  // Group by ISO derived from answers
+  // Group by derived ISO
   const isoGroups = useMemo(() => {
     const groups = {}
     audits.forEach((a) => {
@@ -53,7 +75,9 @@ export default function Company() {
       if (!groups[iso]) groups[iso] = []
       groups[iso].push(a)
     })
-    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b))
+    return Object.entries(groups).sort(([a], [b]) =>
+      a === 'Sem ISO' ? 1 : b === 'Sem ISO' ? -1 : a.localeCompare(b)
+    )
   }, [audits])
 
   return (
@@ -64,7 +88,9 @@ export default function Company() {
           <div>
             <span className={styles.headerLabel}>// empresa</span>
             <h1 className={styles.headerTitle}>
-              {company ? (company.name || company.company_name || company.title || 'Empresa') : 'Empresa'}
+              {company
+                ? (company.name || company.company_name || company.title || 'Empresa')
+                : 'Empresa'}
             </h1>
           </div>
         </div>
@@ -102,21 +128,23 @@ export default function Company() {
                 <div className={styles.grid}>
                   {isoAudits.map((a) => {
                     const auditDate = a.created_at || a.date || a.timestamp || a.createdAt
-                    const title = a.title || 'Auditoria'
                     return (
                       <div
                         key={a.id}
                         className={styles.card}
                         onClick={() => navigate(`/audit/${a.id}/dashboard`)}
                       >
-                        <h3 className={styles.cardName}>{title}</h3>
+                        <h3 className={styles.cardName}>{a.title || 'Auditoria'}</h3>
                         {auditDate && (
                           <p className={styles.cardDate}>Criada em {formatDate(auditDate)}</p>
                         )}
                         <div className={styles.cardActions}>
                           <button
                             className={styles.cardBtn}
-                            onClick={(e) => { e.stopPropagation(); navigate(`/audit/${a.id}/dashboard`) }}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate(`/audit/${a.id}/dashboard`)
+                            }}
                           >
                             Abrir
                           </button>
