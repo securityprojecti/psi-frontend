@@ -95,23 +95,8 @@ export default function Reports() {
 
   const handlePrint = () => window.print()
 
-  if (loading) {
-    return (
-      <div className={styles.page}>
-        <div className={styles.loading}>Carregando relatório…</div>
-      </div>
-    )
-  }
-
-  if (!audit) {
-    return (
-      <div className={styles.page}>
-        <div className={styles.loading}>Auditoria não encontrada.</div>
-      </div>
-    )
-  }
-
-  const answers = audit.answers || []
+  // ── All hooks must be called unconditionally, before any early returns ──────
+  const answers = audit?.answers || []
   const stats = useMemo(() => calcStats(answers), [answers])
   const grouped = useMemo(() => groupByType(answers), [answers])
   const types = useMemo(() => Object.keys(grouped), [grouped])
@@ -145,6 +130,7 @@ export default function Reports() {
     })
     return summary
   }, [compareGrouped])
+
   const workInProgressCount = useMemo(
     () => answers.filter((a) => a.work_in_progress).length,
     [answers]
@@ -157,6 +143,23 @@ export default function Reports() {
     () => stats.applicable - stats.conformes,
     [stats.applicable, stats.conformes]
   )
+
+  // ── Early returns AFTER all hooks ────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.loading}>Carregando relatório…</div>
+      </div>
+    )
+  }
+
+  if (!audit) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.loading}>Auditoria não encontrada.</div>
+      </div>
+    )
+  }
 
   const dateStr = new Date(audit.date).toLocaleDateString('pt-BR', {
     day: '2-digit', month: 'long', year: 'numeric'
