@@ -16,7 +16,7 @@ export default function Company() {
     setLoading(true)
     Promise.all([
       companiesService.get(companyId).catch(() => null),
-      auditsService.list({ company: companyId, page_size: 12 }).catch(() => ({ data: [] })),
+      auditsService.list({ company: companyId, page_size: 100 }).catch(() => ({ data: [] })),
     ])
       .then(([companyRes, auditsRes]) => {
         if (!mounted) return
@@ -36,6 +36,16 @@ export default function Company() {
       month: 'short',
       year: 'numeric',
     })
+
+  // Group audits by ISO type
+  const groupedByIso = audits.reduce((acc, a) => {
+    const iso = a.iso_type || a.iso || a.standard || a.norm || 'Sem ISO'
+    if (!acc[iso]) acc[iso] = []
+    acc[iso].push(a)
+    return acc
+  }, {})
+
+  const isoGroups = Object.entries(groupedByIso).sort(([a], [b]) => a.localeCompare(b))
 
   return (
     <div className={styles.page}>
@@ -69,33 +79,37 @@ export default function Company() {
               <div key={i} className={styles.skeleton} />
             ))}
           </div>
+        ) : audits.length === 0 ? (
+          <p className={styles.empty}>Nenhuma auditoria para esta empresa.</p>
         ) : (
           <div>
-            <h2 className={styles.sectionTitle}>Auditorias</h2>
-            {audits.length === 0 ? (
-              <p className={styles.empty}>Nenhuma auditoria para esta empresa.</p>
-            ) : (
-              <div className={styles.grid}>
-                {audits.map((a) => {
-                  const auditDate = a.created_at || a.date || a.timestamp || a.createdAt
-                  const title = a.title || `Auditoria`
-                  const label = auditDate ? `${title}` : title
-                  return (
-                    <div key={a.id} className={styles.card} onClick={() => navigate(`/audit/${a.id}/dashboard`)}>
-                      <h3 className={styles.cardName}>{label}</h3>
-                      {auditDate && (
-                        <p className={styles.cardDate}>Criada em {formatDate(auditDate)}</p>
-                      )}
-                      <div className={styles.cardActions}>
-                        <button className={styles.cardBtn} onClick={(e) => { e.stopPropagation(); navigate(`/audit/${a.id}/dashboard`) }}>
-                          Abrir
-                        </button>
+            {isoGroups.map(([iso, isoAudits]) => (
+              <div key={iso} className={styles.isoGroup}>
+                <div className={styles.isoGroupHeader}>
+                  <h2 className={styles.isoGroupTitle}>{iso}</h2>
+                  <span className={styles.isoGroupCount}>{isoAudits.length} auditoria{isoAudits.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div className={styles.grid}>
+                  {isoAudits.map((a) => {
+                    const auditDate = a.created_at || a.date || a.timestamp || a.createdAt
+                    const title = a.title || `Auditoria`
+                    return (
+                      <div key={a.id} className={styles.card} onClick={() => navigate(`/audit/${a.id}/dashboard`)}>
+                        <h3 className={styles.cardName}>{title}</h3>
+                        {auditDate && (
+                          <p className={styles.cardDate}>Criada em {formatDate(auditDate)}</p>
+                        )}
+                        <div className={styles.cardActions}>
+                          <button className={styles.cardBtn} onClick={(e) => { e.stopPropagation(); navigate(`/audit/${a.id}/dashboard`) }}>
+                            Abrir
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
-            )}
+            ))}
           </div>
         )}
       </main>

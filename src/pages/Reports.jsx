@@ -69,7 +69,9 @@ export default function Reports() {
         const { data } = await auditsService.get(auditId)
         setAudit(data)
 
-        const listPromise = auditsService.list({ company: data.company, page_size: 2 })
+        // Fetch more audits so we can filter by ISO on the client side
+        const isoType = data.iso_type || data.iso || data.standard || data.norm || ''
+        const listPromise = auditsService.list({ company: data.company, page_size: 50 })
         const companyPromise = !data.company_name && typeof data.company === 'number'
           ? companiesService.get(data.company)
           : Promise.resolve(null)
@@ -82,10 +84,15 @@ export default function Reports() {
 
         const allData = listRes?.data
         const list = Array.isArray(allData) ? allData : allData?.results || []
-        const companyAudits = list
-          .filter((a) => String(a.id) !== String(auditId))
-          .slice(0, 2)
-        setAllAudits(companyAudits)
+
+        // Only show audits with the same ISO type for comparison
+        const sameIsoAudits = list.filter((a) => {
+          if (String(a.id) === String(auditId)) return false
+          const aIso = a.iso_type || a.iso || a.standard || a.norm || ""
+          if (!isoType || !aIso) return true // fallback: include if iso unknown
+          return aIso === isoType
+        })
+        setAllAudits(sameIsoAudits)
       } finally {
         setLoading(false)
       }
@@ -227,7 +234,7 @@ export default function Reports() {
 
         {reportType === 'compare' && (
           <div className={styles.controlGroup}>
-            <label className={styles.controlLabel}>Comparar com</label>
+            <label className={styles.controlLabel}>Comparar com <span style={{fontSize:'0.75rem', color:'var(--muted)', fontWeight:400}}>— apenas auditorias {isoLabel}</span></label>
             <select
               className={styles.select}
               value={compareWith}
@@ -236,7 +243,7 @@ export default function Reports() {
               <option value="">Selecione uma auditoria…</option>
               {allAudits.map((a) => (
                 <option key={a.id} value={a.id}>
-                  Auditoria #{a.id} — {new Date(a.date).toLocaleDateString('pt-BR')}
+                  Auditoria #{a.id} — {new Date(a.date).toLocaleDateString('pt-BR')} ({a.iso_type || a.iso || a.standard || a.norm || 'ISO'})
                 </option>
               ))}
             </select>
@@ -489,7 +496,7 @@ export default function Reports() {
           ) : (
             <div className={styles.noCompare}>
               {allAudits.length === 0
-                ? 'Não há outras auditorias desta empresa para comparar.'
+                ? `Não há outras auditorias desta empresa com a mesma ISO (${isoLabel}) para comparar.`
                 : 'Selecione uma auditoria anterior para comparar.'}
             </div>
           )
