@@ -4,6 +4,7 @@ import PrivateRoute from './components/PrivateRoute'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Companies from './pages/Companies'
+import Company from './pages/Company'
 import NewAudit from './pages/NewAudit'
 import Dashboard from './pages/Dashboard'
 import Reports from './pages/Reports'
@@ -20,6 +21,14 @@ export default function App() {
             element={
               <PrivateRoute>
                 <Companies />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/companies/:companyId"
+            element={
+              <PrivateRoute>
+                <Company />
               </PrivateRoute>
             }
           />
