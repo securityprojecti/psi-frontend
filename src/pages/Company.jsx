@@ -16,7 +16,7 @@ export default function Company() {
     setLoading(true)
     Promise.all([
       companiesService.get(companyId).catch(() => null),
-      auditsService.list({ company: companyId }).catch(() => ({ data: [] })),
+      auditsService.list({ company: companyId, page_size: 12 }).catch(() => ({ data: [] })),
     ])
       .then(([companyRes, auditsRes]) => {
         if (!mounted) return

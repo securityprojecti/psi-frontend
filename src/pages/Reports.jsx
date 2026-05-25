@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { auditsService } from '../services/audits'
 import { companiesService } from '../services/companies'
@@ -68,18 +68,22 @@ export default function Reports() {
       try {
         const { data } = await auditsService.get(auditId)
         setAudit(data)
-        if (!data.company_name && typeof data.company === 'number') {
-          try {
-            const { data: companyData } = await companiesService.get(data.company)
-            setCompanyName(companyData.name || companyData.company_name || '')
-          } catch {
-            setCompanyName('')
-          }
+
+        const listPromise = auditsService.list({ company: data.company, page_size: 2 })
+        const companyPromise = !data.company_name && typeof data.company === 'number'
+          ? companiesService.get(data.company)
+          : Promise.resolve(null)
+
+        const [listRes, companyRes] = await Promise.all([listPromise, companyPromise])
+
+        if (companyRes?.data) {
+          setCompanyName(companyRes.data.name || companyRes.data.company_name || '')
         }
-        const { data: allData } = await auditsService.list()
-        const list = Array.isArray(allData) ? allData : allData.results || []
+
+        const allData = listRes?.data
+        const list = Array.isArray(allData) ? allData : allData?.results || []
         const companyAudits = list
-          .filter((a) => a.company === data.company && String(a.id) !== String(auditId))
+          .filter((a) => String(a.id) !== String(auditId))
           .slice(0, 2)
         setAllAudits(companyAudits)
       } finally {
@@ -108,14 +112,51 @@ export default function Reports() {
   }
 
   const answers = audit.answers || []
-  const stats = calcStats(answers)
-  const grouped = groupByType(answers)
-  const types = Object.keys(grouped)
+  const stats = useMemo(() => calcStats(answers), [answers])
+  const grouped = useMemo(() => groupByType(answers), [answers])
+  const types = useMemo(() => Object.keys(grouped), [grouped])
 
-  const compareAudit = allAudits.find((a) => String(a.id) === String(compareWith))
+  const compareAudit = useMemo(
+    () => allAudits.find((a) => String(a.id) === String(compareWith)),
+    [allAudits, compareWith]
+  )
   const compareAnswers = compareAudit?.answers || []
-  const compareGrouped = groupByType(compareAnswers)
-  const compareStats = calcStats(compareAnswers)
+  const compareGrouped = useMemo(() => groupByType(compareAnswers), [compareAnswers])
+  const compareStats = useMemo(() => calcStats(compareAnswers), [compareAnswers])
+
+  const groupedSummary = useMemo(
+    () => Object.entries(grouped).map(([type, ans]) => ({
+      type,
+      answers: ans,
+      stats: calcStats(ans),
+    })),
+    [grouped]
+  )
+
+  const filteredGroups = useMemo(
+    () => groupedSummary.filter(({ type }) => !filterType || type === filterType),
+    [groupedSummary, filterType]
+  )
+
+  const compareGroupedSummary = useMemo(() => {
+    const summary = {}
+    Object.entries(compareGrouped).forEach(([type, ans]) => {
+      summary[type] = calcStats(ans)
+    })
+    return summary
+  }, [compareGrouped])
+  const workInProgressCount = useMemo(
+    () => answers.filter((a) => a.work_in_progress).length,
+    [answers]
+  )
+  const notApplicableCount = useMemo(
+    () => stats.total - stats.applicable,
+    [stats.total, stats.applicable]
+  )
+  const nonConformCount = useMemo(
+    () => stats.applicable - stats.conformes,
+    [stats.applicable, stats.conformes]
+  )
 
   const dateStr = new Date(audit.date).toLocaleDateString('pt-BR', {
     day: '2-digit', month: 'long', year: 'numeric'
@@ -240,12 +281,12 @@ export default function Reports() {
               <span className={styles.summaryLabel}>Não Conformes</span>
             </div>
             <div className={styles.summaryCard}>
-              <span className={styles.summaryNum}>{stats.total - stats.applicable}</span>
+              <span className={styles.summaryNum}>{notApplicableCount}</span>
               <span className={styles.summaryLabel}>Não Aplicáveis</span>
             </div>
             <div className={styles.summaryCard}>
               <span className={styles.summaryNum} style={{ color: '#d97706' }}>
-                {answers.filter((a) => a.work_in_progress).length}
+                {workInProgressCount}
               </span>
               <span className={styles.summaryLabel}>Em Andamento</span>
             </div>
@@ -267,23 +308,20 @@ export default function Reports() {
               </tr>
             </thead>
             <tbody>
-              {Object.entries(grouped).map(([type, ans]) => {
-                const s = calcStats(ans)
-                return (
-                  <tr key={type}>
-                    <td className={styles.tdBold}>{type}</td>
-                    <td>{s.total}</td>
-                    <td>{s.applicable}</td>
-                    <td>{s.conformes}</td>
-                    <td>
-                      <span className={styles.pctBadge} style={{ background: pctColor(s.pct), color: '#fff' }}>
-                        {s.pct}%
-                      </span>
-                    </td>
-                    <td><MiniBar pct={s.pct} /></td>
-                  </tr>
-                )
-              })}
+              {groupedSummary.map(({ type, stats: s }) => (
+                <tr key={type}>
+                  <td className={styles.tdBold}>{type}</td>
+                  <td>{s.total}</td>
+                  <td>{s.applicable}</td>
+                  <td>{s.conformes}</td>
+                  <td>
+                    <span className={styles.pctBadge} style={{ background: pctColor(s.pct), color: '#fff' }}>
+                      {s.pct}%
+                    </span>
+                  </td>
+                  <td><MiniBar pct={s.pct} /></td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -291,49 +329,44 @@ export default function Reports() {
         {/* ── DETAIL ── (complete or bytype) */}
         {(reportType === 'complete' || reportType === 'bytype') && (
           <>
-            {Object.entries(grouped)
-              .filter(([type]) => !filterType || type === filterType)
-              .map(([type, ans]) => {
-                const s = calcStats(ans)
-                return (
-                  <div key={type} className={styles.section}>
-                    <div className={styles.typeHeader}>
-                      <h2 className={styles.typeTitle}>{type}</h2>
-                      <span className={styles.typePct} style={{ background: pctColor(s.pct) }}>
-                        {s.pct}%
-                      </span>
-                    </div>
-                    <table className={styles.table}>
-                      <thead>
-                        <tr>
-                          <th>Código</th>
-                          <th>Controle</th>
-                          <th>Status</th>
-                          <th>Em Andamento</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {ans.map((a) => (
-                          <tr key={a.id} className={a.status === STATUS.NAO_APLICA ? styles.rowNa : ''}>
-                            <td className={styles.tdCode}>{a.control_info?.code || a.control}</td>
-                            <td>{a.control_info?.title || '—'}</td>
-                            <td>
-                              <span className={`${styles.statusTag} ${styles[`st_${a.status}`]}`}>
-                                {STATUS_LABEL[a.status] || a.status}
-                              </span>
-                            </td>
-                            <td className={styles.tdCenter}>
-                              {a.work_in_progress ? (
-                                <span className={styles.wipTag}>WIP</span>
-                              ) : '—'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )
-              })}
+            {filteredGroups.map(({ type, answers: ans, stats: s }) => (
+              <div key={type} className={styles.section}>
+                <div className={styles.typeHeader}>
+                  <h2 className={styles.typeTitle}>{type}</h2>
+                  <span className={styles.typePct} style={{ background: pctColor(s.pct) }}>
+                    {s.pct}%
+                  </span>
+                </div>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Código</th>
+                      <th>Controle</th>
+                      <th>Status</th>
+                      <th>Em Andamento</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ans.map((a) => (
+                      <tr key={a.id} className={a.status === STATUS.NAO_APLICA ? styles.rowNa : ''}>
+                        <td className={styles.tdCode}>{a.control_info?.code || a.control}</td>
+                        <td>{a.control_info?.title || '—'}</td>
+                        <td>
+                          <span className={`${styles.statusTag} ${styles[`st_${a.status}`]}`}>
+                            {STATUS_LABEL[a.status] || a.status}
+                          </span>
+                        </td>
+                        <td className={styles.tdCenter}>
+                          {a.work_in_progress ? (
+                            <span className={styles.wipTag}>WIP</span>
+                          ) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
           </>
         )}
 
@@ -371,11 +404,10 @@ export default function Reports() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(grouped).map(([type, ans]) => {
-                    const curr = calcStats(ans)
-                    const prevAns = compareGrouped[type] || []
-                    const prev = calcStats(prevAns)
-                    const diff = prevAns.length ? curr.pct - prev.pct : null
+                    {groupedSummary.map(({ type, stats: curr }) => {
+                      const prevAns = compareGrouped[type] || []
+                      const prev = compareGroupedSummary[type] || { pct: 0 }
+                      const diff = prevAns.length ? curr.pct - prev.pct : null
                     return (
                       <tr key={type}>
                         <td className={styles.tdBold}>{type}</td>
@@ -400,12 +432,12 @@ export default function Reports() {
                         </td>
                       </tr>
                     )
-                  })}
+                    })}
                 </tbody>
               </table>
 
               {/* Row-by-row diff */}
-              {Object.entries(grouped).map(([type, ans]) => {
+              {groupedSummary.map(({ type, answers: ans }) => {
                 const prevAns = compareGrouped[type] || []
                 if (!prevAns.length) return null
                 return (

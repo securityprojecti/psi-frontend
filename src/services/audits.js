@@ -21,6 +21,11 @@ export const answersService = {
           : api.post('/answers/', a)
       )
     ),
+  bulkCreate: async (answers) => {
+    for (const answer of answers) {
+      await api.post('/answers/', answer)
+    }
+  },
   update: (id, data) => api.patch(`/answers/${id}/`, data),
   create: (data) => api.post('/answers/', data),
 }
