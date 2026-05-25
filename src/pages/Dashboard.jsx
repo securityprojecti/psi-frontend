@@ -233,23 +233,9 @@ export default function Dashboard() {
     load()
   }, [auditId])
 
-  if (loading) {
-    return (
-      <div className={styles.page}>
-        <div className={styles.loading}>Carregando dashboard…</div>
-      </div>
-    )
-  }
+  // ── All hooks must be called unconditionally, before any early returns ──────
+  const answers = audit?.answers || []
 
-  if (!audit) {
-    return (
-      <div className={styles.page}>
-        <div className={styles.loading}>Auditoria não encontrada.</div>
-      </div>
-    )
-  }
-
-  const answers = audit.answers || []
   const stats = useMemo(() => calcStats(answers), [answers])
   const byType = useMemo(() => calcByType(answers), [answers])
 
@@ -276,6 +262,23 @@ export default function Dashboard() {
       id: a.id,
     }
   }), [allAudits])
+
+  // ── Early returns AFTER all hooks ────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.loading}>Carregando dashboard…</div>
+      </div>
+    )
+  }
+
+  if (!audit) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.loading}>Auditoria não encontrada.</div>
+      </div>
+    )
+  }
 
   return (
     <div className={styles.page}>
