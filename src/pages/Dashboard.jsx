@@ -52,41 +52,54 @@ function DonutChart({ pct, size = 120, stroke = 14, color = 'var(--accent)' }) {
 function BarChart({ data }) {
   // data: [{ label, pct, color }]
   const maxPct = 100
-  const barH = 24
-  const gap = 12
-  const labelW = 160
-  const barMaxW = 280
-  const width = labelW + barMaxW + 60
-  const height = data.length * (barH + gap)
+  const barH = 26
+  const gap = 14
+  const labelW = 220
+  const barMaxW = 240
+  const pctW = 46
+  const width = labelW + barMaxW + pctW
+  const height = data.length * (barH + gap) + gap
 
   return (
     <svg width="100%" viewBox={`0 0 ${width} ${height}`} className={styles.barSvg}>
       {data.map((d, i) => {
-        const y = i * (barH + gap)
+        const y = gap / 2 + i * (barH + gap)
         const barW = (d.pct / maxPct) * barMaxW
+        // wrap label into two lines if too long
+        const words = d.label.split(' ')
+        let line1 = '', line2 = ''
+        for (const w of words) {
+          if ((line1 + ' ' + w).trim().length <= 28) line1 = (line1 + ' ' + w).trim()
+          else line2 = (line2 + ' ' + w).trim()
+        }
+        const twoLines = line2.length > 0
         return (
           <g key={i}>
-            <text x={0} y={y + barH / 2 + 5}
-              fontSize="11" fontFamily="var(--font-mono)"
-              fill="var(--muted)" textAnchor="start"
-            >
-              {d.label.length > 22 ? d.label.slice(0, 21) + '…' : d.label}
-            </text>
-            <rect
-              x={labelW} y={y}
-              width={barMaxW} height={barH}
-              fill="var(--border)" rx={3}
-            />
+            {twoLines ? (
+              <>
+                <text x={0} y={y + barH / 2 - 3}
+                  fontSize="10" fontFamily="var(--font-mono)"
+                  fill="var(--muted)" textAnchor="start">{line1}</text>
+                <text x={0} y={y + barH / 2 + 10}
+                  fontSize="10" fontFamily="var(--font-mono)"
+                  fill="var(--muted)" textAnchor="start">{line2}</text>
+              </>
+            ) : (
+              <text x={0} y={y + barH / 2 + 5}
+                fontSize="10" fontFamily="var(--font-mono)"
+                fill="var(--muted)" textAnchor="start">{line1}</text>
+            )}
+            <rect x={labelW} y={y} width={barMaxW} height={barH} fill="var(--border)" rx={4} />
             <rect
               x={labelW} y={y}
               width={barW} height={barH}
-              fill={d.color} rx={3}
+              fill={d.color} rx={4}
               style={{ transition: 'width 0.8s ease' }}
             />
             <text
-              x={labelW + barW + 6} y={y + barH / 2 + 5}
+              x={labelW + barMaxW + 8} y={y + barH / 2 + 5}
               fontSize="11" fontWeight="700"
-              fill="var(--ink)" fontFamily="inherit"
+              fill={d.color} fontFamily="inherit" textAnchor="start"
             >
               {d.pct}%
             </text>
@@ -223,7 +236,8 @@ export default function Dashboard() {
 
         const allData = listRes?.data
         const list = Array.isArray(allData) ? allData : allData?.results || []
-        setAllAudits(list.slice(0, 3).reverse())
+        // Keep up to 3 audits; ISO filter happens in render via derivedIso
+        setAllAudits(list.slice(0, 10).reverse())
       } catch {
         // handle error silently
       } finally {
@@ -235,6 +249,17 @@ export default function Dashboard() {
 
   // ── All hooks must be called unconditionally, before any early returns ──────
   const answers = audit?.answers || []
+
+  // Derive ISO from answers (most frequent iso_type in controls)
+  const derivedIso = useMemo(() => {
+    const freq = {}
+    answers.forEach((a) => {
+      const iso = a.control_info?.iso_type
+      if (iso) freq[iso] = (freq[iso] || 0) + 1
+    })
+    const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1])
+    return sorted.length > 0 ? sorted[0][0] : null
+  }, [answers])
 
   const stats = useMemo(() => calcStats(answers), [answers])
   const byType = useMemo(() => calcByType(answers), [answers])
@@ -253,7 +278,22 @@ export default function Dashboard() {
     { label: 'N/A', value: statusCounts.notApplicable, color: '#ccc' },
   ], [statusCounts])
 
-  const evolutionData = useMemo(() => allAudits.map((a, i) => {
+  // Filter compare audits by same ISO (derived from current audit's answers)
+  const sameIsoAudits = useMemo(() => {
+    if (!derivedIso) return allAudits
+    return allAudits.filter((a) => {
+      const ans = a.answers || []
+      const freq = {}
+      ans.forEach((x) => {
+        const iso = x.control_info?.iso_type
+        if (iso) freq[iso] = (freq[iso] || 0) + 1
+      })
+      const top = Object.entries(freq).sort((a, b) => b[1] - a[1])[0]
+      return top ? top[0] === derivedIso : true
+    }).slice(0, 3)
+  }, [allAudits, derivedIso])
+
+  const evolutionData = useMemo(() => sameIsoAudits.map((a, i) => {
     const ans = a.answers || []
     const { pct } = calcStats(ans)
     return {
@@ -319,6 +359,15 @@ export default function Dashboard() {
           <span className={styles.metaLabel}>Controles</span>
           <span className={styles.metaValue}>{answers.length}</span>
         </span>
+        {derivedIso && (
+          <>
+            <span className={styles.metaDivider} />
+            <span className={styles.metaItem}>
+              <span className={styles.metaLabel}>ISO</span>
+              <span className={styles.metaValue}>{derivedIso}</span>
+            </span>
+          </>
+        )}
       </div>
 
       {/* TABS */}
@@ -466,7 +515,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className={styles.compareGrid}>
-                  {allAudits.map((a, i) => {
+                  {sameIsoAudits.map((a, i) => {
                     const ans = a.answers || []
                     const s = calcStats(ans)
                     const isCurrentAudit = String(a.id) === String(auditId)
