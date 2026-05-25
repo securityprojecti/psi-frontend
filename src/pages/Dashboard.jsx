@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { auditsService } from '../services/audits'
 import { companiesService } from '../services/companies'
@@ -209,22 +209,21 @@ export default function Dashboard() {
       try {
         const { data } = await auditsService.get(auditId)
         setAudit(data)
-        if (!data.company_name && typeof data.company === 'number') {
-          try {
-            const { data: companyData } = await companiesService.get(data.company)
-            setCompanyName(companyData.name || companyData.company_name || '')
-          } catch {
-            setCompanyName('')
-          }
+
+        const listPromise = auditsService.list({ company: data.company, page_size: 3 })
+        const companyPromise = !data.company_name && typeof data.company === 'number'
+          ? companiesService.get(data.company)
+          : Promise.resolve(null)
+
+        const [listRes, companyRes] = await Promise.all([listPromise, companyPromise])
+
+        if (companyRes?.data) {
+          setCompanyName(companyRes.data.name || companyRes.data.company_name || '')
         }
-        // Load all audits for this company (last 3)
-        const { data: allData } = await auditsService.list()
-        const list = Array.isArray(allData) ? allData : allData.results || []
-        const companyAudits = list
-          .filter((a) => a.company === data.company)
-          .slice(0, 3)
-          .reverse() // oldest first
-        setAllAudits(companyAudits)
+
+        const allData = listRes?.data
+        const list = Array.isArray(allData) ? allData : allData?.results || []
+        setAllAudits(list.slice(0, 3).reverse())
       } catch {
         // handle error silently
       } finally {
@@ -251,17 +250,24 @@ export default function Dashboard() {
   }
 
   const answers = audit.answers || []
-  const stats = calcStats(answers)
-  const byType = calcByType(answers)
+  const stats = useMemo(() => calcStats(answers), [answers])
+  const byType = useMemo(() => calcByType(answers), [answers])
 
-  const pieSlices = [
-    { label: 'Conforme', value: answers.filter((a) => a.status === STATUS.CONFORME).length, color: 'var(--success)' },
-    { label: 'Não Conforme', value: answers.filter((a) => a.status === STATUS.NAO_CONFORME).length, color: 'var(--error)' },
-    { label: 'N/A', value: answers.filter((a) => a.status === STATUS.NAO_APLICA).length, color: '#ccc' },
-  ]
+  const statusCounts = useMemo(() => {
+    const conformes = answers.filter((a) => a.status === STATUS.CONFORME).length
+    const naoConformes = answers.filter((a) => a.status === STATUS.NAO_CONFORME).length
+    const notApplicable = answers.filter((a) => a.status === STATUS.NAO_APLICA).length
+    const inProgress = answers.filter((a) => a.work_in_progress).length
+    return { conformes, naoConformes, notApplicable, inProgress }
+  }, [answers])
 
-  // For comparison line chart
-  const evolutionData = allAudits.map((a, i) => {
+  const pieSlices = useMemo(() => [
+    { label: 'Conforme', value: statusCounts.conformes, color: 'var(--success)' },
+    { label: 'Não Conforme', value: statusCounts.naoConformes, color: 'var(--error)' },
+    { label: 'N/A', value: statusCounts.notApplicable, color: '#ccc' },
+  ], [statusCounts])
+
+  const evolutionData = useMemo(() => allAudits.map((a, i) => {
     const ans = a.answers || []
     const { pct } = calcStats(ans)
     return {
@@ -269,7 +275,7 @@ export default function Dashboard() {
       pct,
       id: a.id,
     }
-  })
+  }), [allAudits])
 
   return (
     <div className={styles.page}>
@@ -344,25 +350,25 @@ export default function Dashboard() {
               <div className={styles.kpiStats}>
                 <div className={styles.kpiStat}>
                   <span className={styles.kpiStatNum} style={{ color: 'var(--success)' }}>
-                    {answers.filter((a) => a.status === STATUS.CONFORME).length}
+                      {statusCounts.conformes}
                   </span>
                   <span className={styles.kpiStatLabel}>Conformes</span>
                 </div>
                 <div className={styles.kpiStat}>
                   <span className={styles.kpiStatNum} style={{ color: 'var(--error)' }}>
-                    {answers.filter((a) => a.status === STATUS.NAO_CONFORME).length}
+                      {statusCounts.naoConformes}
                   </span>
                   <span className={styles.kpiStatLabel}>Não Conformes</span>
                 </div>
                 <div className={styles.kpiStat}>
                   <span className={styles.kpiStatNum} style={{ color: '#d97706' }}>
-                    {answers.filter((a) => a.work_in_progress).length}
+                      {statusCounts.inProgress}
                   </span>
                   <span className={styles.kpiStatLabel}>Em Andamento</span>
                 </div>
                 <div className={styles.kpiStat}>
                   <span className={styles.kpiStatNum} style={{ color: 'var(--muted)' }}>
-                    {answers.filter((a) => a.status === STATUS.NAO_APLICA).length}
+                      {statusCounts.notApplicable}
                   </span>
                   <span className={styles.kpiStatLabel}>Não se Aplica</span>
                 </div>

@@ -8,11 +8,13 @@ import Company from './pages/Company'
 import NewAudit from './pages/NewAudit'
 import Dashboard from './pages/Dashboard'
 import Reports from './pages/Reports'
+import ErrorBoundary from './components/ErrorBoundary'
 
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <ErrorBoundary>
+        <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -59,6 +61,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
+      </ErrorBoundary>
     </AuthProvider>
   )
 }

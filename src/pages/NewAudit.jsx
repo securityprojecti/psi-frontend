@@ -130,17 +130,27 @@ export default function NewAudit() {
     try {
       // 1. Create audit
       const { data: audit } = await auditsService.create({ company: selectedCompany.id })
-      // 2. Create all answers
-      const payloads = controls.map((c) => ({
-        audit: audit.id,
-        control: c.id,
-        status: answers[c.id].status,
-        work_in_progress: answers[c.id].work_in_progress,
-      }))
-      await Promise.all(payloads.map((p) => answersService.create(p)))
+
+      // 2. Validate and create answers one-by-one to avoid backend overload
+      const validStatuses = new Set(Object.values(STATUS))
+      const payloads = controls.map((c) => {
+        const answer = answers[c.id]
+        if (!answer || !validStatuses.has(answer.status)) {
+          throw new Error(`Resposta inválida para controle ${c.code}`)
+        }
+        return {
+          audit: audit.id,
+          control: c.id,
+          status: answer.status,
+          work_in_progress: Boolean(answer.work_in_progress),
+        }
+      })
+
+      await answersService.bulkCreate(payloads)
       navigate(`/audit/${audit.id}/dashboard`)
     } catch (e) {
       setError('Erro ao salvar auditoria. Tente novamente.')
+      console.error('NewAudit submit error:', e)
     } finally {
       setSubmitting(false)
     }
