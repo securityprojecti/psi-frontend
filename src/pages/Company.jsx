@@ -78,7 +78,7 @@ export default function Company() {
               <div className={styles.grid}>
                 {audits.map((a) => {
                   const auditDate = a.created_at || a.date || a.timestamp || a.createdAt
-                  const title = a.title || `Auditoria #${a.id}`
+                  const title = a.title || `Auditoria`
                   const label = auditDate ? `${title}` : title
                   return (
                     <div key={a.id} className={styles.card} onClick={() => navigate(`/audit/${a.id}/dashboard`)}>
