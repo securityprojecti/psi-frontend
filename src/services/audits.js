@@ -23,7 +23,19 @@ export const answersService = {
     ),
   bulkCreate: async (answers) => {
     for (const answer of answers) {
-      await api.post('/answers/', answer)
+      const payload = {
+        audit: answer.audit,
+        control: answer.control,
+        status: answer.status,
+        ...(answer.work_in_progress ? { work_in_progress: true } : {}),
+      }
+      try {
+        await api.post('/answers/', payload)
+      } catch (error) {
+        console.error('Answer bulkCreate failed for payload:', payload, error.response?.data || error.message)
+        throw error
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250))
     }
   },
   update: (id, data) => api.patch(`/answers/${id}/`, data),

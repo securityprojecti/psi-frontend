@@ -56,8 +56,10 @@ api.interceptors.response.use(
 
     const status = error.response?.status
 
-    // Retry on network errors or 5xx
-    const shouldRetry = !error.response || (status >= 500 && status < 600)
+    // Retry only on network errors or idempotent 5xx requests.
+    const method = original.method?.toUpperCase()
+    const isIdempotent = ['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE', 'PATCH'].includes(method)
+    const shouldRetry = !error.response || (status >= 500 && status < 600 && isIdempotent)
     original._retryCount = original._retryCount || 0
     if (shouldRetry && original._retryCount < MAX_RETRIES) {
       original._retryCount += 1

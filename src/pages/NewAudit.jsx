@@ -149,8 +149,9 @@ export default function NewAudit() {
       await answersService.bulkCreate(payloads)
       navigate(`/audit/${audit.id}/dashboard`)
     } catch (e) {
-      setError('Erro ao salvar auditoria. Tente novamente.')
-      console.error('NewAudit submit error:', e)
+      const serverMessage = e.response?.data?.detail || e.response?.data || e.message
+      setError(`Erro ao salvar auditoria. ${typeof serverMessage === 'string' ? serverMessage : 'Tente novamente.'}`)
+      console.error('NewAudit submit error:', serverMessage, e)
     } finally {
       setSubmitting(false)
     }
